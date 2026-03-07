@@ -8,63 +8,32 @@ import { getFirestore } from "firebase-admin/firestore";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. INICIALIZACIÓN METÓDICA
-// Forzamos el ID del proyecto para asegurar la conexión con Firestore en us-east4
+// 1. INICIALIZACIÓN PROFESIONAL
 initializeApp({
   projectId: "arlie-chat"
 });
 
 const db = getFirestore();
-// Evita errores 500 si algún campo (como WhatsApp) llega como 'undefined'
 db.settings({ ignoreUndefinedProperties: true });
 
-/**
- * Asegura que el usuario Admin exista para que siempre haya alguien con quien probar
- */
-async function ensureAdminUser() {
-  try {
-    const adminEmail = 'admin@arlie.chat';
-    const adminRef = db.collection("users").doc(adminEmail);
-    const doc = await adminRef.get();
-
-    if (!doc.exists) {
-      await adminRef.set({
-        username: 'admin',
-        first_name: 'Admin',
-        last_name: 'ArlIE',
-        email: adminEmail,
-        password_hash: 'admin123',
-        status: 'active',
-        role: 'admin',
-        created_at: new Date().toISOString()
-      });
-      console.log("LOG: Usuario administrador verificado en Firestore.");
-    }
-  } catch (e) {
-    console.error("LOG ERROR: Fallo al conectar con la base de datos al inicio:", e);
-  }
-}
-
+// 2. RUTA DE PRUEBA PARA VER SI EL SERVIDOR RESPONDE
 async function startServer() {
   const app = express();
   app.use(express.json());
   const PORT = process.env.PORT || 8080;
 
-  // Ejecutamos la verificación de DB antes de abrir el servidor
-  await ensureAdminUser();
+  // Ruta simple para confirmar que el servidor NO da 404
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", message: "Servidor ArlIE conectado correctamente" });
+  });
 
-  // --- RUTAS DE API CON MANEJO DE ERRORES ---
-
-  // RUTA DE REGISTRO
+  // REGISTRO DE USUARIOS
   app.post("/api/register", async (req, res) => {
     try {
       const { email, password, first_name, last_name, username, phone, birthdate } = req.body;
       
-      if (!email || !password) {
-        return res.status(400).json({ success: false, error: "Faltan campos obligatorios." });
-      }
+      if (!email) return res.status(400).json({ success: false, error: "Email requerido" });
 
-      // Guardado seguro en la colección 'users'
       await db.collection("users").doc(email).set({
         first_name: first_name || "",
         last_name: last_name || "",
@@ -79,18 +48,15 @@ async function startServer() {
 
       return res.json({ success: true });
     } catch (e: any) {
-      console.error("FIRESTORE REGISTER ERROR:", e.message);
-      // Enviamos JSON para que el frontend no de error de conexión
-      return res.status(500).json({ success: false, error: "Error de base de datos. Verifique permisos IAM." });
+      console.error("Error Firestore:", e.message);
+      return res.status(500).json({ success: false, error: e.message });
     }
   });
 
-  // RUTA DE LOGIN
+  // LOGIN
   app.post("/api/login", async (req, res) => {
     try {
       const { identifier, password } = req.body;
-      
-      // Búsqueda por contraseña y luego filtro por usuario/email
       const snapshot = await db.collection("users")
         .where("password_hash", "==", password)
         .get();
@@ -102,24 +68,20 @@ async function startServer() {
       if (userDoc) {
         return res.json({ success: true, user: userDoc.data() });
       } else {
-        return res.status(401).json({ success: false, error: "Credenciales inválidas." });
+        return res.status(401).json({ success: false, error: "Credenciales inválidas" });
       }
-    } catch (e: any) {
-      console.error("FIRESTORE LOGIN ERROR:", e.message);
-      // Garantizamos respuesta JSON para evitar la pantalla negra por TypeError
-      return res.status(500).json({ success: false, error: "Error de servidor al validar usuario." });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: "Error de servidor" });
     }
   });
 
-  // --- INTEGRACIÓN CON EL FRONTEND ---
+  // MANEJO DE FRONTEND
   const isProd = process.env.NODE_ENV === "production";
   if (isProd) {
     const distPath = path.resolve(__dirname, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      if (!req.path.startsWith("/api")) {
-        res.sendFile(path.join(distPath, "index.html"));
-      }
+      if (!req.path.startsWith("/api")) res.sendFile(path.join(distPath, "index.html"));
     });
   } else {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
@@ -127,10 +89,8 @@ async function startServer() {
   }
 
   app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`ArlIE Server operativo en puerto ${PORT}`);
+    console.log(`ArlIE Online en puerto ${PORT}`);
   });
 }
 
-startServer().catch(err => {
-  console.error("FALLO CRÍTICO EN ARRANQUE:", err);
-});
+startServer();
