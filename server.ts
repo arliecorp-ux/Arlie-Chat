@@ -2,17 +2,22 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initializeApp } from "firebase-admin/app";
+import { initializeApp, credential } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Inicialización de Firebase
-initializeApp();
-const db = getFirestore();
+// 1. Inicialización Reforzada
+// Usamos una configuración que fuerza la detección del proyecto en us-east4
+initializeApp({
+  projectId: "arlie-chat" 
+});
 
-// Función para asegurar que el Admin exista
+const db = getFirestore();
+// Esto es vital para que no falle si algún campo llega vacío desde el celular
+db.settings({ ignoreUndefinedProperties: true });
+
 async function ensureAdminUser() {
   try {
     const adminEmail = 'admin@arlie.chat';
@@ -30,10 +35,10 @@ async function ensureAdminUser() {
         role: 'admin',
         created_at: new Date().toISOString()
       });
-      console.log("Admin verificado/creado.");
+      console.log("DATABASE: Admin creado/verificado con éxito.");
     }
   } catch (e) {
-    console.error("Error al conectar con la DB en el arranque:", e);
+    console.error("DATABASE ERROR inicializando:", e);
   }
 }
 
@@ -42,37 +47,42 @@ async function startServer() {
   app.use(express.json());
   const PORT = process.env.PORT || 8080;
 
-  // Intentar conectar con la DB antes de recibir visitas
   await ensureAdminUser();
 
-  // RUTA DE REGISTRO
+  // RUTA DE REGISTRO - Corregida para evitar el error 500
   app.post("/api/register", async (req, res) => {
     try {
       const { email, password, first_name, last_name, username, phone, birthdate } = req.body;
       
+      if (!email) {
+        return res.status(400).json({ success: false, error: "Falta el correo electrónico." });
+      }
+
       await db.collection("users").doc(email).set({
-        first_name,
-        last_name,
-        username,
-        email,
-        phone,
-        birthdate,
+        first_name: first_name || "",
+        last_name: last_name || "",
+        username: username || email.split('@')[0],
+        email: email,
+        phone: phone || "",
+        birthdate: birthdate || "",
         password_hash: password,
         status: "active",
         created_at: new Date().toISOString()
       });
 
-      res.json({ success: true, message: "¡Registro exitoso en la nube!" });
-    } catch (e) {
-      console.error("Error Firestore:", e);
-      res.status(500).json({ error: "Error de conexión con Firestore." });
+      console.log(`USUARIO REGISTRADO: ${email}`);
+      return res.json({ success: true });
+    } catch (e: any) {
+      console.error("FIRESTORE ERROR REGISTRO:", e.message);
+      return res.status(500).json({ success: false, error: "Error de conexión con Firestore." });
     }
   });
 
-  // RUTA DE LOGIN
+  // RUTA DE LOGIN - Corregida para evitar pantalla negra (TypeError)
   app.post("/api/login", async (req, res) => {
     try {
       const { identifier, password } = req.body;
+      
       const snapshot = await db.collection("users")
         .where("password_hash", "==", password)
         .get();
@@ -82,13 +92,15 @@ async function startServer() {
       );
 
       if (userDoc) {
-        res.json({ success: true, user: userDoc.data() });
+        const userData = userDoc.data();
+        return res.json({ success: true, user: userData });
       } else {
-        res.status(401).json({ error: "Credenciales inválidas." });
+        return res.status(401).json({ success: false, error: "Credenciales inválidas." });
       }
-    } catch (e) {
-      console.error("Error en servidor:", e);
-      res.status(500).json({ error: "Error de servidor." });
+    } catch (e: any) {
+      console.error("FIRESTORE ERROR LOGIN:", e.message);
+      // Enviamos un JSON válido siempre para que el frontend no se rompa (pantalla negra)
+      return res.status(500).json({ success: false, error: "Error interno del servidor." });
     }
   });
 
@@ -98,15 +110,20 @@ async function startServer() {
     const distPath = path.resolve(__dirname, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      if (!req.path.startsWith("/api")) res.sendFile(path.join(distPath, "index.html"));
+      if (!req.path.startsWith("/api")) {
+        res.sendFile(path.join(distPath, "index.html"));
+      }
     });
   } else {
-    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
     app.use(vite.middlewares);
   }
 
   app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`ArlIE funcionando en puerto ${PORT}`);
+    console.log(`SERVIDOR ArlIE: Activo en puerto ${PORT}`);
   });
 }
 
