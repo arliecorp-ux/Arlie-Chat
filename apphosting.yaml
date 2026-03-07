@@ -1,0 +1,8 @@
+﻿# Este archivo le dice a Firebase que envíe todo al servidor de Node.js
+runConfig:
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+scripts:
+  start: npm run start
