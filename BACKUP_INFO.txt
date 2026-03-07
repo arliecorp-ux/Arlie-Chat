@@ -1,0 +1,26 @@
+# Copia de Seguridad - Estado Actual
+**Fecha:** 2026-03-05
+**Versión:** 1.0
+
+Este archivo sirve como registro del estado estable de la aplicación. Todos los cambios realizados hasta este momento están guardados en el código fuente y en la base de datos `arlie.db`.
+
+## Archivos Clave Modificados:
+- `/server.ts`: Lógica del servidor, base de datos y rutas API.
+- `/src/App.tsx`: Estructura principal y navegación.
+- `/src/components/Login.tsx`: Acceso por usuario/correo.
+- `/src/components/Register.tsx`: Registro con generación de usuario y fecha mexicana.
+- `/src/components/Chat.tsx`: Inteligencia Artificial y detección de riesgos.
+- `/src/components/AdminDashboard.tsx`: Gestión de usuarios y claves.
+- `/src/components/Diary.tsx`: Persistencia del diario.
+- `/src/components/Goals.tsx`: Persistencia de metas.
+
+## Base de Datos:
+La base de datos `arlie.db` contiene todas las tablas necesarias:
+- `users`
+- `access_keys`
+- `chat_sessions`
+- `chat_history`
+- `diary_entries`
+- `goals`
+
+Si necesitas "regresar" a este punto, este archivo confirma que todas las funcionalidades de acceso, registro y persistencia básica están operativas.

@@ -1,0 +1,7 @@
+{
+  "name": "ArlIE Chat",
+  "description": "Plataforma de bienestar emocional impulsada por IA con chat terapéutico, seguimiento de metas y detección de riesgos.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
