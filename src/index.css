@@ -1,32 +1,47 @@
 @import "tailwindcss";
 
+/* FUERZA EL TEMA AZUL ESCOLAR */
 @theme {
-  /* Cambiamos el Neón por un Azul Eléctrico y un Cian profundo */
-  --color-primary: #00D1FF; 
-  --color-primary-dark: #050A15;
-  --color-accent: #0077FF;
+  --color-primary: #00D1FF; /* Cian Eléctrico */
+  --color-primary-dark: #02060C;
+  --color-accent: #0077FF; /* Azul Intenso */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
   body {
     @apply text-white font-sans;
-    /* Un fondo más profundo, azulado, no tan negro */
-    background: radial-gradient(circle at center, #0A192F 0%, #02060C 100%);
+    /* Fondo Azul Profundo Espacial */
+    background: radial-gradient(circle at center, #0A192F 0%, #02060C 100%) !important;
+    background-attachment: fixed;
     min-height: 100vh;
+    margin: 0;
   }
 }
 
+/* DISEÑO DE TARJETAS CRISTALINAS AZULES */
 .glass-card {
-  /* Efecto cristal con tinte azulado */
-  @apply bg-blue-900/10 backdrop-blur-xl border border-blue-400/20 rounded-3xl shadow-2xl;
+  @apply bg-blue-500/5 backdrop-blur-2xl border border-blue-400/20 rounded-3xl shadow-[0_0_30px_rgba(0,209,255,0.1)];
 }
 
+/* BOTÓN DE ACCIÓN ESCOLAR */
 .btn-primary {
-  /* Botón con brillo azul */
-  @apply bg-primary hover:bg-accent text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 uppercase tracking-widest shadow-lg shadow-primary/30 active:scale-95;
+  @apply bg-primary hover:bg-accent text-white font-black py-4 px-8 rounded-2xl transition-all duration-300 uppercase tracking-widest shadow-[0_10px_20px_rgba(0,209,255,0.3)] active:scale-95;
 }
 
+/* INPUTS AZULADOS */
 .input-field {
-  @apply bg-blue-900/20 border border-blue-400/20 rounded-2xl px-5 py-4 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all text-white placeholder:text-blue-200/30;
+  @apply bg-blue-900/20 border border-blue-400/20 rounded-2xl px-5 py-4 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-white placeholder:text-blue-300/30;
+}
+
+/* SCROLLBAR AZUL */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #00D1FF;
+  border-radius: 10px;
 }
