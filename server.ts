@@ -87,6 +87,7 @@ async function startServer() {
         res.status(401).json({ error: "Credenciales inválidas." });
       }
     } catch (e) {
+      console.error("Error en servidor:", e);
       res.status(500).json({ error: "Error de servidor." });
     }
   });
