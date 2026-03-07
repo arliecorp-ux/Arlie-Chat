@@ -8,28 +8,30 @@ import { getFirestore } from "firebase-admin/firestore";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Inicialización profesional de Firestore
+// 1. Inicialización Profesional de Firebase
+// En App Hosting, esto se conecta solo a tu proyecto
 initializeApp();
 const db = getFirestore();
 
-// FUNCIÓN PARA ASEGURAR QUE EL ADMIN EXISTA
+// 2. Función para asegurar que el Admin siempre exista en Firestore
 async function ensureAdminUser() {
   const adminEmail = 'admin@arlie.chat';
   const adminRef = db.collection("users").doc(adminEmail);
   const doc = await adminRef.get();
 
   if (!doc.exists) {
-    console.log("Creando usuario administrador por defecto...");
+    console.log("Configurando acceso de administrador inicial...");
     await adminRef.set({
       username: 'admin',
       first_name: 'Admin',
       last_name: 'ArlIE',
       email: adminEmail,
-      password_hash: 'admin123', // Tu clave de acceso
+      password_hash: 'admin123', // Tu contraseña de acceso
       status: 'active',
+      role: 'admin',
       created_at: new Date().toISOString()
     });
-    console.log("Usuario admin creado con éxito.");
+    console.log("Administrador creado con éxito en la nube.");
   }
 }
 
@@ -39,19 +41,22 @@ async function startServer() {
 
   const PORT = process.env.PORT || 8080;
 
-  // Ejecutar la creación del admin al arrancar
+  // Ejecutamos la verificación del admin al arrancar
   await ensureAdminUser();
 
-  // --- API Routes ---
+  // --- RUTAS DE LA API ---
 
+  // Verificación de salud del servidor
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", port: PORT, env: process.env.NODE_ENV });
+    res.json({ status: "ok", port: PORT, database: "firestore" });
   });
 
-  // REGISTRO
+  // REGISTRO DE USUARIOS (Para Arlette y nuevos miembros)
   app.post("/api/register", async (req, res) => {
     try {
       const { email, password, first_name, last_name, username, phone, birthdate } = req.body;
+      
+      // Guardamos en la colección 'users' usando el email como ID
       await db.collection("users").doc(email).set({
         first_name,
         last_name,
@@ -61,37 +66,42 @@ async function startServer() {
         birthdate,
         password_hash: password,
         status: "active",
+        role: "user",
         created_at: new Date().toISOString()
       });
-      res.json({ success: true, message: "Usuario registrado en la nube." });
-    } catch (e) {
-      res.status(500).json({ error: "Error de conexión con Firestore." });
+
+      res.json({ success: true, message: "Usuario registrado correctamente en Firestore." });
+    } catch (error) {
+      console.error("Error al registrar:", error);
+      res.status(500).json({ error: "Falla en la conexión con la base de datos." });
     }
   });
 
-  // LOGIN
+  // LOGIN (Para entrar a la App)
   app.post("/api/login", async (req, res) => {
     const { identifier, password } = req.body;
     try {
       const usersRef = db.collection("users");
-      // Buscamos por email o username
-      let snapshot = await usersRef.where("email", "==", identifier).where("password_hash", "==", password).get();
-      if (snapshot.empty) {
-        snapshot = await usersRef.where("username", "==", identifier).where("password_hash", "==", password).get();
-      }
+      // Buscamos por email o por nombre de usuario
+      const snapshot = await usersRef.where("password_hash", "==", password).get();
+      
+      const userDoc = snapshot.docs.find(doc => 
+        doc.data().email === identifier || doc.data().username === identifier
+      );
 
-      if (!snapshot.empty) {
-        const user = snapshot.docs[0].data();
-        res.json({ success: true, user });
+      if (userDoc) {
+        // Devolvemos los datos del usuario para que la pantalla NO se quede negra
+        res.json({ success: true, user: userDoc.data() });
       } else {
-        res.status(401).json({ error: "Credenciales inválidas." });
+        res.status(401).json({ error: "Usuario o contraseña incorrectos." });
       }
-    } catch (e) {
-      res.status(500).json({ error: "Error interno." });
+    } catch (error) {
+      console.error("Error en Login:", error);
+      res.status(500).json({ error: "Error interno del servidor." });
     }
   });
 
-  // --- Manejo de Frontend (Producción vs Desarrollo) ---
+  // --- MANEJO DEL FRONTEND (Lo que el usuario ve) ---
   const isProd = process.env.NODE_ENV === "production";
   if (isProd) {
     const distPath = path.resolve(__dirname, "dist");
@@ -113,8 +123,9 @@ async function startServer() {
     }
   }
 
+  // Escucha profesional en todas las interfaces (0.0.0.0)
   app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`ArlIE Chat operativo en puerto ${PORT}`);
+    console.log(`ArlIE Chat operativo en el puerto ${PORT}`);
   });
 }
 
