@@ -2,22 +2,25 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initializeApp, credential } from "firebase-admin/app";
+import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. Inicialización Reforzada
-// Usamos una configuración que fuerza la detección del proyecto en us-east4
+// 1. INICIALIZACIÓN METÓDICA
+// Forzamos el ID del proyecto para asegurar la conexión con Firestore en us-east4
 initializeApp({
-  projectId: "arlie-chat" 
+  projectId: "arlie-chat"
 });
 
 const db = getFirestore();
-// Esto es vital para que no falle si algún campo llega vacío desde el celular
+// Evita errores 500 si algún campo (como WhatsApp) llega como 'undefined'
 db.settings({ ignoreUndefinedProperties: true });
 
+/**
+ * Asegura que el usuario Admin exista para que siempre haya alguien con quien probar
+ */
 async function ensureAdminUser() {
   try {
     const adminEmail = 'admin@arlie.chat';
@@ -35,10 +38,10 @@ async function ensureAdminUser() {
         role: 'admin',
         created_at: new Date().toISOString()
       });
-      console.log("DATABASE: Admin creado/verificado con éxito.");
+      console.log("LOG: Usuario administrador verificado en Firestore.");
     }
   } catch (e) {
-    console.error("DATABASE ERROR inicializando:", e);
+    console.error("LOG ERROR: Fallo al conectar con la base de datos al inicio:", e);
   }
 }
 
@@ -47,17 +50,21 @@ async function startServer() {
   app.use(express.json());
   const PORT = process.env.PORT || 8080;
 
+  // Ejecutamos la verificación de DB antes de abrir el servidor
   await ensureAdminUser();
 
-  // RUTA DE REGISTRO - Corregida para evitar el error 500
+  // --- RUTAS DE API CON MANEJO DE ERRORES ---
+
+  // RUTA DE REGISTRO
   app.post("/api/register", async (req, res) => {
     try {
       const { email, password, first_name, last_name, username, phone, birthdate } = req.body;
       
-      if (!email) {
-        return res.status(400).json({ success: false, error: "Falta el correo electrónico." });
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: "Faltan campos obligatorios." });
       }
 
+      // Guardado seguro en la colección 'users'
       await db.collection("users").doc(email).set({
         first_name: first_name || "",
         last_name: last_name || "",
@@ -70,19 +77,20 @@ async function startServer() {
         created_at: new Date().toISOString()
       });
 
-      console.log(`USUARIO REGISTRADO: ${email}`);
       return res.json({ success: true });
     } catch (e: any) {
-      console.error("FIRESTORE ERROR REGISTRO:", e.message);
-      return res.status(500).json({ success: false, error: "Error de conexión con Firestore." });
+      console.error("FIRESTORE REGISTER ERROR:", e.message);
+      // Enviamos JSON para que el frontend no de error de conexión
+      return res.status(500).json({ success: false, error: "Error de base de datos. Verifique permisos IAM." });
     }
   });
 
-  // RUTA DE LOGIN - Corregida para evitar pantalla negra (TypeError)
+  // RUTA DE LOGIN
   app.post("/api/login", async (req, res) => {
     try {
       const { identifier, password } = req.body;
       
+      // Búsqueda por contraseña y luego filtro por usuario/email
       const snapshot = await db.collection("users")
         .where("password_hash", "==", password)
         .get();
@@ -92,19 +100,18 @@ async function startServer() {
       );
 
       if (userDoc) {
-        const userData = userDoc.data();
-        return res.json({ success: true, user: userData });
+        return res.json({ success: true, user: userDoc.data() });
       } else {
         return res.status(401).json({ success: false, error: "Credenciales inválidas." });
       }
     } catch (e: any) {
-      console.error("FIRESTORE ERROR LOGIN:", e.message);
-      // Enviamos un JSON válido siempre para que el frontend no se rompa (pantalla negra)
-      return res.status(500).json({ success: false, error: "Error interno del servidor." });
+      console.error("FIRESTORE LOGIN ERROR:", e.message);
+      // Garantizamos respuesta JSON para evitar la pantalla negra por TypeError
+      return res.status(500).json({ success: false, error: "Error de servidor al validar usuario." });
     }
   });
 
-  // MANEJO DE FRONTEND
+  // --- INTEGRACIÓN CON EL FRONTEND ---
   const isProd = process.env.NODE_ENV === "production";
   if (isProd) {
     const distPath = path.resolve(__dirname, "dist");
@@ -115,16 +122,15 @@ async function startServer() {
       }
     });
   } else {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   }
 
   app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`SERVIDOR ArlIE: Activo en puerto ${PORT}`);
+    console.log(`ArlIE Server operativo en puerto ${PORT}`);
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("FALLO CRÍTICO EN ARRANQUE:", err);
+});
