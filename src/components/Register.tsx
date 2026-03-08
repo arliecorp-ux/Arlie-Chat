@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
 
-export default function Register() {
+export default function Register({ onSwitch }: { onSwitch: () => void }) {
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    password: '',
-    gender: 'masculino' // Valor inicial
+    first_name: '', last_name: '', email: '', password: '', gender: 'femenino'
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -16,37 +12,32 @@ export default function Register() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
     });
-    if (response.ok) window.location.href = '/login';
+    if (response.ok) onSwitch();
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-md space-y-4">
-        <h2 className="text-[#00D1FF] text-2xl font-black text-center uppercase">Crear Cuenta</h2>
-        
+    <div className="max-w-md mx-auto p-8 bg-[#0B0F1A] rounded-3xl border border-white/10">
+      <h2 className="text-[#00D1FF] text-center font-black uppercase mb-6">Registro ArlIE</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <input placeholder="Nombre" className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white" 
+          <input placeholder="Nombre" className="p-4 bg-white/5 rounded-xl text-white outline-none" 
             onChange={e => setFormData({...formData, first_name: e.target.value})} required />
-          <input placeholder="Apellido" className="p-4 bg-white/5 border border-white/10 rounded-2xl text-white" 
+          <input placeholder="Apellido" className="p-4 bg-white/5 rounded-xl text-white outline-none" 
             onChange={e => setFormData({...formData, last_name: e.target.value})} required />
         </div>
-
         <select 
-          className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white"
+          className="w-full p-4 bg-[#161B26] border border-white/10 rounded-xl text-white"
           onChange={e => setFormData({...formData, gender: e.target.value})}
+          value={formData.gender}
         >
-          <option value="masculino">Hombre (Verde)</option>
-          <option value="femenino">Mujer (Morado)</option>
-          <option value="otro">Otro (Azul)</option>
+          <option value="femenino">Mujer (Color Morado)</option>
+          <option value="masculino">Hombre (Color Verde)</option>
         </select>
-
-        <input type="email" placeholder="Correo" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white" 
+        <input type="email" placeholder="Email" className="w-full p-4 bg-white/5 rounded-xl text-white" 
           onChange={e => setFormData({...formData, email: e.target.value})} required />
-        
-        <input type="password" placeholder="Contraseña" className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl text-white" 
+        <input type="password" placeholder="Contraseña" className="w-full p-4 bg-white/5 rounded-xl text-white" 
           onChange={e => setFormData({...formData, password: e.target.value})} required />
-
-        <button className="w-full bg-[#00D1FF] p-4 rounded-2xl font-black uppercase text-black">Registrarse</button>
+        <button type="submit" className="w-full bg-[#00D1FF] p-4 rounded-xl font-black text-black uppercase">Registrarse</button>
       </form>
     </div>
   );
