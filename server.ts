@@ -1,75 +1,108 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import { initializeApp } from "firebase-admin/app";
+import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { GoogleGenerativeAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Inicialización de Firebase (Usando el ID de tu proyecto)
-initializeApp({ projectId: "arlie-chat" });
+// 1. DIAGNÓSTICO DE INICIO
+console.log(">>> [INICIO] Arrancando servidor de diagnóstico ArlIE...");
+
+// Evitar doble inicialización de Firebase
+if (!getApps().length) {
+    initializeApp({ projectId: "arlie-chat" });
+}
 const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
 
-// Configuración de Gemini desde la variable que acabas de poner en el panel
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY || "");
 
 const app = express();
 app.use(express.json());
 
-// --- ENDPOINT DE CHAT (Lógica centralizada) ---
+// --- RUTA DE PRUEBA (HOLA MUNDO) ---
+// Si entras a tu-url.com/api/test y ves este JSON, el servidor SI SIRVE.
+app.get("/api/test", (req, res) => {
+  res.json({ 
+    status: "OK", 
+    message: "¡HOLA MUNDO! El servidor ArlIE está vivo.",
+    env_check: {
+      has_api_key: !!process.env.AI_API_KEY,
+      port: process.env.PORT || 8080
+    }
+  });
+});
+
+// --- LOGIN CON REPORTE DE ERRORES ---
+app.post("/api/login", async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+    console.log(`>>> [LOGIN] Intentando entrar con: ${identifier}`);
+    
+    const snapshot = await db.collection("users").where("password_hash", "==", password).get();
+    
+    if (snapshot.empty) {
+        console.log(">>> [ERROR] No se encontró ningún usuario con esa contraseña.");
+        return res.status(401).json({ error: "Credenciales inválidas." });
+    }
+
+    const userDoc = snapshot.docs.find(doc => 
+        doc.data().email === identifier || doc.data().username === identifier
+    );
+
+    if (userDoc) {
+      return res.json({ success: true, user: userDoc.data() });
+    }
+    
+    res.status(401).json({ error: "Usuario no encontrado." });
+  } catch (e: any) {
+    console.error(">>> [CRÍTICO] Error en Login:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- CHAT CON REPORTE DE ERRORES ---
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, gender } = req.body;
+    const { message } = req.body;
+    if (!process.env.AI_API_KEY) throw new Error("Falta la AI_API_KEY en las variables de entorno.");
+
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `Eres ArlIE, un asistente de bienestar emocional para estudiantes (${gender}). Responde de forma empática y breve: ${message}`;
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(message);
     res.json({ reply: result.response.text() });
-  } catch (error) {
-    console.error("Error en IA:", error);
-    res.status(500).json({ error: "Error de conexión con ArlIE." });
+  } catch (e: any) {
+    console.error(">>> [CRÍTICO] Error en Chat:", e.message);
+    res.status(500).json({ error: `Error IA: ${e.message}` });
   }
 });
 
-// --- ENDPOINT DE CLAVES (ADMIN) ---
-app.get("/api/admin/keys", async (req, res) => {
-  try {
-    const snapshot = await db.collection("keys").orderBy("created_at", "desc").get();
-    const now = new Date();
-    
-    // Cálculo automático de los 3 meses de duración
-    const keys = snapshot.docs.map(doc => {
-      const data = doc.data();
-      let daysLeft = null;
-      if (data.status === 'activada' && data.activated_at) {
-        const expireDate = new Date(data.activated_at);
-        expireDate.setMonth(expireDate.getMonth() + 3);
-        daysLeft = Math.ceil((expireDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      }
-      return { id: doc.id, ...data, daysLeft };
-    });
-
-    res.json(keys || []); // Retornar array vacío evita el error 'find' en el Dashboard
-  } catch (error) {
-    res.status(500).json([]);
-  }
-});
-
-// --- SERVIR EL FRONTEND ---
-const distPath = path.resolve(__dirname, "../dist");
+// --- SERVIR FRONTEND ---
+const distPath = path.resolve(__dirname, "dist");
 app.use(express.static(distPath));
 
 app.get("*", (req, res) => {
+  // Si no es una ruta de API, sirve el index.html
   if (!req.path.startsWith("/api")) {
-    res.sendFile(path.join(distPath, "index.html"));
+    res.sendFile(path.join(distPath, "index.html"), (err) => {
+        if (err) {
+            res.status(500).send("<h1>ERROR: Carpeta 'dist' no encontrada</h1><p>Asegúrate de ejecutar npm run build antes de subir.</p>");
+        }
+    });
   }
 });
 
-// --- CONFIGURACIÓN DE ESCUCHA CRÍTICA ---
+// --- PUERTO CRÍTICO PARA CLOUD RUN ---
 const PORT = process.env.PORT || 8080;
-// '0.0.0.0' es indispensable para que Cloud Run acepte tráfico externo
 app.listen(Number(PORT), "0.0.0.0", () => {
-  console.log(`>>> Servidor ArlIE funcionando en el puerto ${PORT}`);
+  console.log(`
+  ******************************************
+  ARLIE SERVER LOGS:
+  PUERTO: ${PORT}
+  HOST: 0.0.0.0
+  STATUS: LISTO PARA PRUEBAS
+  ******************************************
+  `);
 });
