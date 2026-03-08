@@ -1,61 +1,36 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, Key, Bell, Calendar, FileText, Users } from 'lucide-react';
-
-// Importamos los sub-módulos (los crearemos a continuación)
-import Stats from './Stats';
+import { BarChart3, Key, Users, Bell } from 'lucide-react';
 import KeyManager from './KeyManager';
-import Alerts from './Alerts';
-import Agenda from './Agenda';
-import Reports from './Reports';
+import UserRequests from './UserRequests';
 
 export default function AdminDashboard({ user }: { user: any }) {
-  const [activeTab, setActiveTab] = useState('stats');
+  const [activeTab, setActiveTab] = useState('keys');
 
   return (
     <div className="flex flex-col h-full bg-[#02060C]">
-      {/* Menú de pestañas superior del Admin */}
-      <div className="flex overflow-x-auto bg-white/5 border-b border-white/10 p-2 gap-2 scrollbar-hide">
-        <TabBtn id="stats" label="Estadísticas" icon={<BarChart3 size={18}/>} active={activeTab} onClick={setActiveTab} />
-        <TabBtn id="keys" label="Claves" icon={<Key size={18}/>} active={activeTab} onClick={setActiveTab} />
-        <TabBtn id="alerts" label="Alertas" icon={<Bell size={18}/>} active={activeTab} onClick={setActiveTab} />
-        <TabBtn id="agenda" label="Agenda" icon={<Calendar size={18}/>} active={activeTab} onClick={setActiveTab} />
-        <TabBtn id="reports" label="Reportes" icon={<FileText size={18}/>} active={activeTab} onClick={setActiveTab} />
-      </div>
+      <header className="p-6 border-b border-white/10 flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-black italic text-[#00D1FF]">Panel ArlIE Staff</h2>
+          <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest">Bienvenido, {user?.first_name || 'Admin'}</p>
+        </div>
+        <div className="bg-[#00D1FF]/10 text-[#00D1FF] px-3 py-1 rounded-full text-[10px] font-black uppercase">
+          Administrador
+        </div>
+      </header>
 
-      {/* Área de Contenido Dinámico */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
-          >
-            {activeTab === 'stats' && <Stats />}
-            {activeTab === 'keys' && <KeyManager />}
-            {activeTab === 'alerts' && <Alerts />}
-            {activeTab === 'agenda' && <Agenda />}
-            {activeTab === 'reports' && <Reports />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      <nav className="flex bg-white/5 p-2 gap-2 border-b border-white/10 overflow-x-auto">
+        <button onClick={() => setActiveTab('keys')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all ${activeTab === 'keys' ? 'bg-[#00D1FF] text-black font-bold' : 'text-white/40'}`}>
+          <Key size={18} /> <span className="text-[10px] uppercase">Claves</span>
+        </button>
+        <button onClick={() => setActiveTab('users')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl transition-all ${activeTab === 'users' ? 'bg-[#00D1FF] text-black font-bold' : 'text-white/40'}`}>
+          <Users size={18} /> <span className="text-[10px] uppercase">Solicitudes</span>
+        </button>
+      </nav>
+
+      <main className="flex-1 overflow-y-auto p-6">
+        {activeTab === 'keys' && <KeyManager />}
+        {activeTab === 'users' && <UserRequests />}
+      </main>
     </div>
-  );
-}
-
-function TabBtn({ id, label, icon, active, onClick }: any) {
-  const isActive = active === id;
-  return (
-    <button 
-      onClick={() => onClick(id)}
-      className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all whitespace-nowrap ${
-        isActive ? 'bg-[#00D1FF] text-black font-bold' : 'text-white/40 hover:bg-white/5'
-      }`}
-    >
-      {icon}
-      <span className="text-xs uppercase tracking-widest">{label}</span>
-    </button>
   );
 }

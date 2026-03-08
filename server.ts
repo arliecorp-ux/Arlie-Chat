@@ -8,15 +8,19 @@ import { GoogleGenerativeAI } from "@google/genai";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Inicialización de Firebase
 initializeApp({ projectId: "arlie-chat" });
 const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
 
+// Configuración de Gemini con la API KEY del entorno
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY || "");
 
 async function startServer() {
   const app = express();
   app.use(express.json());
+  
+  // CRÍTICO: Cloud Run requiere escuchar en el puerto definido por la variable PORT
   const PORT = process.env.PORT || 8080;
 
   // --- REGISTRO Y LOGIN ---
@@ -55,7 +59,26 @@ async function startServer() {
     }
   });
 
-  // --- GESTIÓN DE CLAVES Y LICENCIAS (LOGICA DE 3 MESES) ---
+  // --- GESTIÓN DE USUARIOS (FILTROS) ---
+
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const { status } = req.query;
+      let query: any = db.collection("users");
+      
+      if (status && status !== 'todos') {
+        query = query.where("status", "==", status);
+      }
+      
+      const snapshot = await query.orderBy("created_at", "desc").get();
+      const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      res.json(users);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // --- GESTIÓN DE CLAVES Y LICENCIAS (3 MESES Y 5 DÍAS) ---
 
   app.get("/api/admin/keys", async (req, res) => {
     try {
@@ -71,7 +94,7 @@ async function startServer() {
         const data = doc.data();
         const createdDate = new Date(data.created_at);
         
-        // 1. Lógica de 5 días para activarse (si sigue 'generada' o 'enviada')
+        // 1. Lógica de 5 días para activación inicial
         if (data.status !== 'activada' && data.status !== 'expirada') {
           const diffDays = Math.ceil((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
           if (diffDays > 5) {
@@ -80,22 +103,23 @@ async function startServer() {
           }
         }
 
-        // 2. Lógica de 3 meses para claves ACTIVAS
+        // 2. Lógica de 3 meses para claves activas
         let daysToExpire = null;
         let warningMessage = null;
 
         if (data.status === 'activada' && data.activated_at) {
           const activatedAt = new Date(data.activated_at);
           const expireDate = new Date(activatedAt);
-          expireDate.setMonth(expireDate.getMonth() + 3); // Sumar 3 meses
+          expireDate.setMonth(expireDate.getMonth() + 3);
 
           const diffTime = expireDate.getTime() - now.getTime();
           daysToExpire = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-          // Lógica de Mensajes Automáticos
           if (daysToExpire <= 0) {
             await db.collection("keys").doc(doc.id).update({ status: 'expirada' });
-            await db.collection("users").doc(data.assigned_to).update({ status: 'expirada' });
+            if (data.assigned_to) {
+              await db.collection("users").doc(data.assigned_to).update({ status: 'expirada' });
+            }
             data.status = 'expirada';
             warningMessage = "Tu licencia se caduca hoy a las 11:59 pm";
           } else if (daysToExpire === 15) {
@@ -128,7 +152,6 @@ async function startServer() {
         updated_at: new Date().toISOString() 
       };
       
-      // Si se activa, marcamos el inicio de los 3 meses
       if (newStatus === 'activada') {
         updateData.activated_at = new Date().toISOString();
         if (userEmail) {
@@ -140,7 +163,7 @@ async function startServer() {
       await db.collection("keys").doc(keyId).collection("history").add({
         status: newStatus,
         timestamp: new Date().toISOString(),
-        note: `Cambio a ${newStatus}`
+        note: `Cambio de estado a ${newStatus} para ${userEmail || 'usuario sin asignar'}`
       });
 
       res.json({ success: true });
@@ -151,12 +174,13 @@ async function startServer() {
 
   app.post("/api/admin/keys/generate", async (req, res) => {
     try {
+      const { userEmail } = req.body;
       const keyStr = `ARL-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       await db.collection("keys").doc(keyStr).set({
         value: keyStr,
         status: "generada",
         created_at: new Date().toISOString(),
-        assigned_to: req.body.userEmail || null
+        assigned_to: userEmail || null
       });
       res.json({ success: true, key: keyStr });
     } catch (e: any) {
@@ -173,16 +197,24 @@ async function startServer() {
       const result = await model.generateContent(prompt);
       res.json({ reply: result.response.text() });
     } catch (e) {
-      res.status(500).json({ error: "Error IA" });
+      res.status(500).json({ error: "Error de IA" });
     }
   });
 
+  // --- ARCHIVOS ESTÁTICOS ---
   const distPath = path.resolve(__dirname, "dist");
   app.use(express.static(distPath));
+  
   app.get("*", (req, res) => {
-    if (!req.path.startsWith("/api")) res.sendFile(path.join(distPath, "index.html"));
+    if (!req.path.startsWith("/api")) {
+      res.sendFile(path.join(distPath, "index.html"));
+    }
   });
 
-  app.listen(Number(PORT), "0.0.0.0", () => console.log(`Server ArlIE on ${PORT}`));
+  // Escuchar en 0.0.0.0 es vital para despliegues en la nube (Cloud Run)
+  app.listen(Number(PORT), "0.0.0.0", () => {
+    console.log(`>>> Servidor ArlIE corriendo en puerto ${PORT}`);
+  });
 }
+
 startServer();
