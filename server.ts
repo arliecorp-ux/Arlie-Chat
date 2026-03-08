@@ -8,42 +8,35 @@ import { GoogleGenerativeAI } from "@google/genai";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Inicialización de Firebase
 initializeApp({ projectId: "arlie-chat" });
 const db = getFirestore();
 db.settings({ ignoreUndefinedProperties: true });
 
-// La API Key se lee de las variables que ya configuraste
 const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY || "");
 
 async function startServer() {
   const app = express();
   app.use(express.json());
-  
-  // CORRECCIÓN PARA CLOUD RUN: Puerto dinámico y host 0.0.0.0
   const PORT = process.env.PORT || 8080;
 
-  // --- RUTA DE CHAT ---
-  app.post("/api/chat", async (req, res) => {
+  // --- LOGIN SEGURO ---
+  app.post("/api/login", async (req, res) => {
     try {
-      const { message, gender } = req.body;
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const prompt = `Eres ArlIE para estudiantes (${gender}). Responde empáticamente: ${message}`;
-      const result = await model.generateContent(prompt);
-      res.json({ reply: result.response.text() });
-    } catch (e) {
-      res.status(500).json({ error: "Error de IA" });
-    }
-  });
+      const { identifier, password } = req.body;
+      const snapshot = await db.collection("users")
+        .where("password_hash", "==", password)
+        .get();
+      
+      const userDoc = snapshot.docs.find(doc => 
+        doc.data().email === identifier || doc.data().username === identifier
+      );
 
-  // --- GESTIÓN DE USUARIOS ---
-  app.get("/api/admin/users", async (req, res) => {
-    try {
-      const { status } = req.query;
-      let query: any = db.collection("users");
-      if (status && status !== 'todos') query = query.where("status", "==", status);
-      const snapshot = await query.orderBy("created_at", "desc").get();
-      res.json(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      if (userDoc) {
+        const userData = userDoc.data();
+        if (userData.status === "activada") return res.json({ success: true, user: userData });
+        return res.status(403).json({ success: false, error: "Cuenta inactiva." });
+      }
+      res.status(401).json({ success: false, error: "Credenciales inválidas." });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
@@ -66,16 +59,23 @@ async function startServer() {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // Servir Frontend
+  // --- CHAT IA (SÓLO SERVIDOR) ---
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { message, gender } = req.body;
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `Eres ArlIE para estudiantes (${gender}). Responde empáticamente: ${message}`;
+      const result = await model.generateContent(prompt);
+      res.json({ reply: result.response.text() });
+    } catch (e) { res.status(500).json({ error: "Error IA" }); }
+  });
+
   const distPath = path.resolve(__dirname, "dist");
   app.use(express.static(distPath));
   app.get("*", (req, res) => {
     if (!req.path.startsWith("/api")) res.sendFile(path.join(distPath, "index.html"));
   });
 
-  // ESCUCHAR EN 0.0.0.0 ES OBLIGATORIO
-  app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`Servidor ArlIE activo en puerto ${PORT}`);
-  });
+  app.listen(Number(PORT), "0.0.0.0", () => console.log(`>>> Servidor ArlIE OK en ${PORT}`));
 }
 startServer();
