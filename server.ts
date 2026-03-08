@@ -18,25 +18,21 @@ const genAI = new GoogleGenerativeAI(process.env.AI_API_KEY || "");
 const app = express();
 app.use(express.json());
 
-// --- RUTA: REGISTRO (CAPTURA NOMBRE, APELLIDO Y GÉNERO) ---
+// REGISTRO: Asegura que Nombres y Género entren a Firestore
 app.post("/api/register", async (req, res) => {
   try {
-    const { first_name, last_name, email, password, phone, birthdate, gender } = req.body;
-    
+    const { first_name, last_name, email, password, gender } = req.body;
     const newUser = {
       first_name: first_name || "",
       last_name: last_name || "",
       email: email,
       username: email.split('@')[0],
       password_hash: password,
-      phone: phone || "",
-      birthdate: birthdate || "",
-      gender: gender || "otro", // <--- MASCULINO, FEMENINO O OTRO
-      status: "active",
+      gender: gender || "masculino", 
       role: "estudiante",
+      status: "active",
       created_at: new Date().toISOString()
     };
-
     const docRef = await db.collection("users").add(newUser);
     res.json({ success: true, id: docRef.id });
   } catch (e: any) {
@@ -44,43 +40,37 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-// --- RUTA: LOGIN (DEVUELVE EL GÉNERO PARA EL COLOR) ---
+// LOGIN: Devuelve el usuario completo (incluyendo género para el color)
 app.post("/api/login", async (req, res) => {
   try {
     const { identifier, password } = req.body;
     const snapshot = await db.collection("users").where("password_hash", "==", password).get();
-    
     const userDoc = snapshot.docs.find(doc => 
         doc.data().email === identifier || doc.data().username === identifier
     );
-
-    if (userDoc) {
-      return res.json({ success: true, user: userDoc.data() });
-    }
-    res.status(401).json({ error: "Usuario no encontrado." });
+    if (userDoc) return res.json({ success: true, user: userDoc.data() });
+    res.status(401).json({ error: "Credenciales incorrectas" });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// --- RUTA: ADMIN KEYS (SIN PANTALLA NEGRA) ---
+// ADMIN: Blindado contra errores de lectura
 app.get("/api/admin/keys", async (req, res) => {
   try {
     const snapshot = await db.collection("keys").get();
     if (snapshot.empty) return res.json([]);
-    const keys = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.json(keys);
-  } catch (e) {
+    res.json(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  } catch {
     res.json([]);
   }
 });
 
-// --- RUTA: CHAT IA ---
+// CHAT IA
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message } = req.body;
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(message);
+    const result = await model.generateContent(req.body.message);
     res.json({ reply: result.response.text() });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -95,5 +85,5 @@ app.get("*", (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 app.listen(Number(PORT), "0.0.0.0", () => {
-  console.log(`ARLIE SERVER READY ON PORT ${PORT}`);
+  console.log(`>>> Servidor ArlIE iniciado en puerto ${PORT}`);
 });
