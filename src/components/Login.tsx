@@ -1,229 +1,131 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { User, Lock, ArrowRight, ShieldAlert, Heart, ArrowLeft } from 'lucide-react';
-import { User as UserType } from '../types';
+import { LogIn, UserPlus, User as UserIcon, Venus, Mars } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (user: UserType) => void;
+  onLogin: (user: any) => void;
   onSwitch: () => void;
 }
 
 export default function Login({ onLogin, onSwitch }: LoginProps) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isAdminMode, setIsAdminMode] = useState(false);
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [gender, setGender] = useState<'mujer' | 'hombre' | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Lógica de color dinámica
+  const getThemeColor = () => {
+    if (gender === 'mujer') return '#A855F7'; // Morado Vibrante
+    if (gender === 'hombre') return '#2EDBA7'; // Verde ArlIE
+    return '#00D1FF'; // Azul Impacto (Default)
+  };
+
+  const themeColor = getThemeColor();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    if (!gender) {
+      setError('POR FAVOR SELECCIONA TU GÉNERO');
+      return;
+    }
+    
+    setLoading(true);
+    setError('');
+
     try {
-      const res = await fetch('/api/login', {
+      const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          identifier: isAdminMode ? 'admin' : identifier, 
-          password 
-        })
+        body: JSON.stringify({ identifier, password, gender }),
       });
-      
-      const data = await res.json();
-      
+
+      const data = await response.json();
+
       if (data.success) {
-        localStorage.setItem('arlie_user', JSON.stringify(data.user));
-        onLogin(data.user);
+        // Guardamos el género en el objeto usuario para que App.tsx sepa qué color usar
+        onLogin({ ...data.user, gender });
       } else {
-        setError(data.error || 'Credenciales inválidas');
+        setError(data.error || 'CREDENCIALES INCORRECTAS');
       }
-    } catch (error) {
-      setError('Error al conectar con el servidor. Inténtalo de nuevo.');
+    } catch (err) {
+      setError('ERROR DE CONEXIÓN CON ARLIE');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleLogoDoubleClick = () => {
-    setIsAdminMode(true);
-    setIdentifier('admin');
-  };
-
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass-card p-10 w-full max-w-md space-y-8 relative overflow-hidden"
-    >
-      {/* Decorative Glow */}
-      <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/10 blur-3xl rounded-full" />
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#02060C] transition-colors duration-700" 
+         style={{ backgroundColor: `${themeColor}05` }}>
       
-      <div className="text-center space-y-4 relative">
-        {/* Heart Logo in Green Square */}
-        <motion.div 
-          onDoubleClick={handleLogoDoubleClick}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="w-20 h-20 bg-primary rounded-2xl mx-auto flex items-center justify-center shadow-xl shadow-primary/30 cursor-pointer select-none group"
-        >
-          <Heart className="text-white w-10 h-10 transition-transform group-hover:scale-110" strokeWidth={2.5} />
-        </motion.div>
-
-        <div className="select-none">
-          <div className="text-5xl font-black tracking-tighter italic flex justify-center items-baseline gap-1">
-            <span className="text-white">Arl</span>
-            <span className="text-primary drop-shadow-[0_0_15px_rgba(46,219,167,0.5)]">IE</span>
-          </div>
-          <p className="text-primary/60 text-[9px] font-bold uppercase tracking-[0.4em] mt-2">
-            Algoritmo de Bienestar Emocional
-          </p>
-        </div>
+      <div className="w-full max-w-md space-y-8 bg-white/5 p-8 rounded-3xl border transition-all duration-500 backdrop-blur-xl"
+           style={{ borderColor: `${themeColor}33`, boxShadow: `0 0 40px ${themeColor}10` }}>
         
-        <AnimatePresence>
-          {error && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs font-medium flex items-center gap-2"
-            >
-              <ShieldAlert size={14} />
-              {error}
-            </motion.div>
-          )}
-          {isAdminMode && !error && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-center justify-center gap-2 text-red-400 text-xs font-bold uppercase animate-pulse pt-2"
-            >
-              <ShieldAlert size={14} />
-              Acceso de Administrador
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
-          {!isAdminMode && (
-            <div className="relative group">
-              <User className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-primary transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Usuario o correo" 
-                className="input-field w-full pl-14"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                required
-              />
-            </div>
-          )}
-          
-          <div className="relative group">
-            <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-primary transition-colors" />
-            <input 
-              type="password" 
-              placeholder={isAdminMode ? "Contraseña Maestra" : "Contraseña"} 
-              className="input-field w-full pl-14"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center">
-          {isAdminMode ? (
-            <button 
-              type="button" 
-              onClick={() => {
-                setIsAdminMode(false);
-                setError(null);
-              }}
-              className="flex items-center gap-2 text-xs text-white/40 hover:text-primary transition-colors"
-            >
-              <ArrowLeft size={14} />
-              Regresar
-            </button>
-          ) : (
-            <button 
-              type="button" 
-              onClick={() => setShowForgotModal(true)}
-              className="text-xs text-white/40 hover:text-primary transition-colors ml-auto"
-            >
-              ¿Olvidaste tu contraseña?
-            </button>
-          )}
-        </div>
-
-        <button 
-          type="submit" 
-          disabled={isLoading}
-          className="btn-primary w-full flex items-center justify-center gap-3 group"
-        >
-          {isLoading ? 'Verificando...' : isAdminMode ? 'Acceder como Admin' : 'Ingresar'}
-          <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-        </button>
-      </form>
-
-      {!isAdminMode && (
         <div className="text-center">
-          <p className="text-white/40 text-sm">
-            ¿Aún no tienes cuenta?{' '}
-            <button onClick={onSwitch} className="text-primary font-bold hover:underline">Regístrate aquí</button>
-          </p>
-        </div>
-      )}
-
-      {/* Forgot Password Modal */}
-      <AnimatePresence>
-        {showForgotModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="glass-card p-8 max-w-md w-full space-y-6 text-center"
-            >
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                <Lock className="text-primary w-8 h-8" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold">Recuperar Acceso</h3>
-                <p className="text-white/60 text-sm">
-                  Por seguridad, la recuperación de contraseña debe ser gestionada por un administrador.
-                </p>
-              </div>
-              <div className="bg-white/5 p-4 rounded-xl border border-white/10 text-left space-y-3">
-                <p className="text-xs text-white/40 uppercase font-bold tracking-widest">Pasos a seguir:</p>
-                <ul className="text-sm text-white/70 space-y-2">
-                  <li className="flex gap-2">
-                    <span className="text-primary font-bold">1.</span>
-                    Contacta a soporte vía WhatsApp.
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="text-primary font-bold">2.</span>
-                    Proporciona tu nombre de usuario o correo.
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="text-primary font-bold">3.</span>
-                    Se te asignará una contraseña temporal.
-                  </li>
-                </ul>
-              </div>
-              <button 
-                onClick={() => setShowForgotModal(false)} 
-                className="btn-primary w-full"
-              >
-                Entendido
-              </button>
-            </motion.div>
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-black font-black text-3xl mx-auto transition-all duration-500 shadow-lg"
+               style={{ backgroundColor: themeColor, boxShadow: `0 0 20px ${themeColor}40` }}>
+            A
           </div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+          <h2 className="mt-6 text-3xl font-black text-white tracking-tight italic">ArlIE Chat</h2>
+          <p className="text-white/40 text-[10px] uppercase tracking-[0.2em] mt-2 font-bold">Identidad Escolar Inteligente</p>
+        </div>
+
+        {/* SELECCIÓN DE GÉNERO - IMPACTO VISUAL */}
+        <div className="flex gap-4 justify-center py-2">
+          <button 
+            type="button"
+            onClick={() => setGender('mujer')}
+            className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${gender === 'mujer' ? 'bg-purple-500/20 border-purple-500' : 'bg-white/5 border-transparent text-white/20'}`}
+          >
+            <Venus size={24} className={gender === 'mujer' ? 'text-purple-500' : ''} />
+            <span className="text-[10px] font-bold uppercase">Mujer</span>
+          </button>
+          
+          <button 
+            type="button"
+            onClick={() => setGender('hombre')}
+            className={`flex-1 flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${gender === 'hombre' ? 'bg-[#2EDBA7]/20 border-[#2EDBA7]' : 'bg-white/5 border-transparent text-white/20'}`}
+          >
+            <Mars size={24} className={gender === 'hombre' ? 'text-[#2EDBA7]' : ''} />
+            <span className="text-[10px] font-bold uppercase">Hombre</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input 
+            type="text" 
+            placeholder="USUARIO O CORREO" 
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none transition-all focus:ring-1"
+            style={{ focusBorderColor: themeColor }}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+          />
+          <input 
+            type="password" 
+            placeholder="CONTRASEÑA" 
+            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none transition-all"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          
+          {error && <p className="text-red-400 text-[10px] text-center font-black tracking-widest animate-pulse">{error}</p>}
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full text-black font-black py-4 rounded-2xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2 shadow-lg"
+            style={{ backgroundColor: themeColor, boxShadow: `0 10px 20px ${themeColor}30` }}
+          >
+            {loading ? 'CONECTANDO...' : <><LogIn size={20}/> ENTRAR</>}
+          </button>
+        </form>
+
+        <button onClick={onSwitch} className="w-full text-white/30 text-[10px] hover:text-white transition-colors uppercase font-bold tracking-widest text-center">
+          ¿No tienes cuenta? Regístrate aquí
+        </button>
+      </div>
+    </div>
   );
 }
