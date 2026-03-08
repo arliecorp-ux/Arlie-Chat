@@ -1,16 +1,13 @@
-const sendMessage = async (text: string) => {
-  try {
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        message: text, 
-        gender: user.gender // Enviamos el género para personalizar la respuesta
-      }),
-    });
-    const data = await response.json();
-    // Aquí agregas la respuesta de data.reply a tu lista de mensajes
-  } catch (error) {
-    console.error("Error en el chat");
-  }
+const handleSend = async () => {
+  if (!input.trim()) return;
+  
+  // 1. Agregas mensaje del usuario a la lista local
+  // 2. Llamas a TU API (no a la de Google)
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: input, gender: user.gender })
+  });
+  const data = await res.json();
+  // 3. Agregas data.reply a la lista
 };
