@@ -1,11 +1,11 @@
 {
   "name": "arlie-chat",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "vite",
     "build": "vite build",
-    "start": "tsx server.ts", 
-    "clean": "rm -rf dist"
+    "start": "tsx server.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -21,6 +21,8 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "@types/express": "^5.0.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
   }
 }

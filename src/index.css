@@ -1,47 +1,33 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* FUERZA EL TEMA AZUL ESCOLAR */
-@theme {
-  --color-primary: #00D1FF; /* Cian Eléctrico */
-  --color-primary-dark: #02060C;
-  --color-accent: #0077FF; /* Azul Intenso */
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+:root {
+  color-scheme: dark;
 }
 
-@layer base {
-  body {
-    @apply text-white font-sans;
-    /* Fondo Azul Profundo Espacial */
-    background: radial-gradient(circle at center, #0A192F 0%, #02060C 100%) !important;
-    background-attachment: fixed;
-    min-height: 100vh;
-    margin: 0;
-  }
+body {
+  margin: 0;
+  background-color: #02060C;
+  color: white;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* DISEÑO DE TARJETAS CRISTALINAS AZULES */
-.glass-card {
-  @apply bg-blue-500/5 backdrop-blur-2xl border border-blue-400/20 rounded-3xl shadow-[0_0_30px_rgba(0,209,255,0.1)];
-}
-
-/* BOTÓN DE ACCIÓN ESCOLAR */
-.btn-primary {
-  @apply bg-primary hover:bg-accent text-white font-black py-4 px-8 rounded-2xl transition-all duration-300 uppercase tracking-widest shadow-[0_10px_20px_rgba(0,209,255,0.3)] active:scale-95;
-}
-
-/* INPUTS AZULADOS */
-.input-field {
-  @apply bg-blue-900/20 border border-blue-400/20 rounded-2xl px-5 py-4 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-white placeholder:text-blue-300/30;
-}
-
-/* SCROLLBAR AZUL */
+/* Scrollbar personalizada para el chat */
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #00D1FF;
+  background: #27272a;
   border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
 }
